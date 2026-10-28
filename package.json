@@ -4,6 +4,11 @@
   "private": true,
   "description": "Live 3D globe with CelesTrak orbital propagation and a server-side AISStream proxy",
   "main": "server.js",
-  "scripts": { "start": "node server.js" },
-  "dependencies": { "ws": "^8.18.3" }
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@vercel/analytics": "^2.0.1",
+    "ws": "^8.18.3"
+  }
 }
