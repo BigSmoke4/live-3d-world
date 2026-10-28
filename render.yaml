@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: live-3d-world-ais
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: AISSTREAM_API_KEY
+        sync: false
+      - key: NODE_ENV
+        value: production

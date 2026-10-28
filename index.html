@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live 3D World</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.6.0/dist/maplibre-gl.css">
+<style>
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;overflow:hidden;background:#02040a;color:#fff;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+#g,#m{position:absolute;inset:0}#g{opacity:1;transition:opacity .9s cubic-bezier(.22,.61,.36,1)}
+#m{display:none;opacity:0;transition:opacity .9s cubic-bezier(.22,.61,.36,1);background:transparent;z-index:2;touch-action:pan-x pan-y}#m .maplibregl-canvas{outline:none}#m .maplibregl-canvas-container{cursor:grab}#m .maplibregl-canvas-container:active{cursor:grabbing}
+.glass{background:#0008;border:1px solid #ffffff2a;border-radius:14px;backdrop-filter:blur(8px)}
+#card{position:fixed;top:14px;right:14px;width:290px;padding:14px 16px;z-index:5;font-size:.85rem;max-height:calc(100% - 90px);overflow:auto;background:#212121;border:1px solid #ffffff18;border-radius:30px;box-shadow:15px 15px 30px #191919,-15px -15px 30px #3c3c3c}
+#card h2{margin:0 0 2px;font-size:1.05rem}
+#card .sub{opacity:.65;font-size:.75rem;margin-bottom:8px}
+#clock{font-size:1.8rem;font-weight:700;font-variant-numeric:tabular-nums}
+#temp{font-size:1.5rem;font-weight:700}
+#card .row{display:flex;justify-content:space-between;gap:8px;margin-top:6px;opacity:.9}
+#card h3{font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;opacity:.6;margin:12px 0 4px}
+.addr div{display:flex;justify-content:space-between;gap:10px;padding:1px 0;font-size:.78rem}.addr b{font-weight:600;text-align:right}.addr .chain{opacity:.65;font-size:.7rem;margin-top:4px;line-height:1.3}
+#over div{display:flex;justify-content:space-between;padding:1px 0}
+#bar{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);display:flex;gap:8px;padding:9px;z-index:5;flex-wrap:wrap;justify-content:center;max-width:96%;background:rgba(245,248,255,.10);border:1px solid rgba(255,255,255,.24);border-radius:24px;backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);box-shadow:0 8px 32px #0003,inset 0 1px #ffffff26}
+button,select{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:999px;padding:9px 14px;font:inherit;font-size:.82rem;cursor:pointer;position:relative;overflow:hidden;box-shadow:inset 0 1px 0 #ffffff24,0 4px 14px #0002;backdrop-filter:blur(18px) saturate(180%);-webkit-backdrop-filter:blur(18px) saturate(180%);transition:background .22s ease,border-color .22s ease,transform .22s ease,box-shadow .22s ease}
+button:hover,select:hover{background:rgba(255,255,255,.23);border-color:rgba(255,255,255,.48);transform:translateY(-1px);box-shadow:inset 0 1px 0 #ffffff35,0 7px 20px #0003}button.on{background:rgba(120,170,255,.24);border-color:rgba(170,205,255,.55)}select{appearance:auto}button:active{transform:scale(.97)}
+#title{position:fixed;top:14px;left:16px;z-index:5;font-weight:700;letter-spacing:.04em;text-shadow:0 2px 8px #000}
+#title small{display:block;font-weight:400;opacity:.65;font-size:.72rem}
+#tip{position:fixed;pointer-events:none;z-index:9;display:none;padding:.35rem .7rem;font-weight:600;font-size:.9rem;white-space:nowrap}
+#tip small{display:block;font-weight:400;opacity:.7;font-size:.68rem;letter-spacing:.1em;text-transform:uppercase}
+#sl{position:fixed;inset:0;pointer-events:none;z-index:3;overflow:hidden}
+.sl{position:absolute;font-size:.68rem;color:#ffe9a0;text-shadow:0 1px 4px #000;white-space:nowrap;transform:translate(8px,-6px)}
+.mepos{position:absolute;z-index:4;display:none}
+.me-b{width:40px;height:40px;border-radius:50%;background:#2563eb;border:3px solid #fff;display:grid;place-items:center;font-size:20px;position:relative;animation:pl 2s infinite}
+.mepos .me-b{transform:translate(-50%,calc(-100% - 9px))}
+.me-b::after{content:"";position:absolute;left:50%;bottom:-10px;margin-left:-7px;border:7px solid transparent;border-top:9px solid #fff;border-bottom:0}
+@keyframes pl{0%{box-shadow:0 0 0 0 #2563ebaa}70%{box-shadow:0 0 0 16px #2563eb00}100%{box-shadow:0 0 0 0 #2563eb00}}
+#msg{position:fixed;inset:0;display:grid;place-items:center;z-index:20;background:#02040a;text-align:center;padding:2rem}
+.ship-label{position:absolute;z-index:4;display:none;width:42px;height:42px;align-items:center;justify-content:center;transform:translate(-50%,-50%);pointer-events:auto;overflow:visible}
+.ship-icon{width:40px;height:40px;display:grid;place-items:center;border-radius:50%;background:radial-gradient(circle at 35% 25%,#244e66,#071522 72%);border:1px solid #79dcffcc;box-shadow:0 0 0 3px #55cfff22,0 0 16px #39c7ff66;cursor:pointer;animation:shipBob 2.4s ease-in-out infinite;transition:transform .2s ease,box-shadow .2s ease}
+.ship-icon:hover,.ship-label:focus-within .ship-icon{box-shadow:0 0 0 5px #55cfff2e,0 0 25px #39c7ffcc;animation-duration:1.1s}
+.ship-icon svg{width:29px;height:29px;overflow:visible;filter:drop-shadow(0 2px 3px #000b);transform-origin:50% 50%;transition:transform .25s ease}
+.ship-tooltip{position:absolute;left:50%;bottom:calc(100% + 10px);transform:translate(-50%,5px);opacity:0;visibility:hidden;pointer-events:none;min-width:120px;max-width:230px;padding:7px 10px;border:1px solid #72d9ffb8;border-radius:10px;background:rgba(3,12,24,.96);box-shadow:0 8px 26px #0009,0 0 15px #38bdf833;color:#f4fbff;font:600 12px/1.35 system-ui,sans-serif;letter-spacing:.01em;text-align:center;white-space:normal;overflow-wrap:anywhere;transition:opacity .16s ease,transform .16s ease,visibility .16s}
+.ship-tooltip small{display:block;margin-top:3px;color:#9eddf4;font-size:10px;font-weight:500;letter-spacing:.04em}
+.ship-label:hover .ship-tooltip,.ship-label:focus-within .ship-tooltip{opacity:1;visibility:visible;transform:translate(-50%,0)}
+@keyframes shipBob{0%,100%{translate:0 0;rotate:-2deg}50%{translate:0 -3px;rotate:2deg}}
+.ship-label::after{content:"";position:absolute;bottom:-7px;left:50%;width:16px;height:5px;transform:translateX(-50%);border-radius:50%;background:#55d8ff66;filter:blur(3px);animation:shipWake 2.4s ease-in-out infinite;pointer-events:none}
+@keyframes shipWake{0%,100%{opacity:.25;scale:.65 1}50%{opacity:.8;scale:1.15 1}}
+.mepos{width:100px;height:110px;pointer-events:auto;cursor:pointer;transform:translate(-50%,-90%)}
+.me-b{display:none}
+.avatar-mini{position:absolute;left:0;top:0;transform:scale(.29);transform-origin:top left;width:310px;height:360px;cursor:pointer;filter:drop-shadow(0 5px 9px #0009)}
+.bo{position:relative;z-index:10;zoom:.8;width:310px;height:360px}
+.face{position:relative;width:300px;height:350px;background:linear-gradient(180deg,#452824 0 184px,#f2bbad 184px 100%);border-top-right-radius:250px 350px;border-top-left-radius:250px 350px;border-bottom-left-radius:250px 250px;border-bottom-right-radius:250px 250px;border:5px solid #000;overflow:visible}
+.hairs{height:180px;background:#f2bbad;position:absolute;width:290px;border-top-right-radius:250px 350px;border-top-left-radius:250px 350px;top:25px;left:0}
+.earL,.earR{border-radius:250px 250px 250px 250px/350px 350px 250px 250px;height:70px;width:50px;background:#f2bbad;position:absolute;top:150px;border:5px solid #000}.earL{left:-30px;z-index:-1}.earR{right:-30px;z-index:-4}
+.eyeR,.eyeL{border-radius:250px 250px 250px 250px/350px 350px 250px 250px;height:10px;width:10px;background:#000;position:absolute;top:120px;z-index:2}.eyeR{left:128px;animation:blinkR 5s infinite linear}.eyeL{right:128px;animation:blinkL 5s infinite linear}
+@keyframes blinkL{98%{height:10px;width:10px;right:128px;top:120px}100%{height:3px;width:11px;right:126px;top:123px}}@keyframes blinkR{98%{height:10px;width:10px;left:128px;top:120px}100%{height:3px;width:11px;left:126px;top:123px}}
+.nose{background:#fefefe;width:20px;height:20px;border-radius:50%;position:absolute;top:220px;left:140px;scale:1;transition:all ease-in-out .3s;z-index:100}.nose:hover{scale:1 1.25;top:236px}.nose:active{animation:propeller .5s infinite linear;transform-origin:50% -55px;scale:1 1.25;top:220px;animation-delay:.5s}@keyframes propeller{to{transform:rotateZ(360deg)}}.nose:before{content:"";position:absolute;top:-64px;left:50%;border:10px solid transparent;border-bottom:62px solid #fefefe;transform:translateX(-50%)}
+.mouth{position:absolute;top:300px;left:140px;background:#a36655;width:25px;height:18px;border:5px solid #000;border-radius:50%;transition:all .3s linear}.face:active .mouth{top:290px;width:60px;height:25px;left:123px;border-radius:7px 7px 130px 130px}
+.snow{position:absolute;top:0;left:0;transform:translateX(150px);transform-origin:right}.mountain-cap-1,.mountain-cap-2,.mountain-cap-3,.mountain-cap-4{position:absolute;top:20px;border-left:20px solid transparent;border-right:20px solid transparent;border-top:40px solid #452824}.mountain-cap-1{left:-65px}.mountain-cap-2{left:-35px}.mountain-cap-3{left:-5px}.mountain-cap-4{left:25px}
+.smileL,.smileR{position:absolute;height:0;width:0;rotate:310deg;top:180px;transition:all .1s linear}.smileL{left:70px}.smileR{right:70px}.smileL svg,.smileR svg{width:65px;height:65px;overflow:visible}.face:active .smileL,.face:active .smileR{height:30px;width:30px}
+@media(max-width:600px){#card{width:min(250px,68vw);top:10px;right:10px;padding:12px;border-radius:22px}#title{font-size:.8rem;max-width:45vw}#bar{bottom:10px;gap:6px}button,select{padding:8px 10px;font-size:.75rem}}
+</style>
+</head>
+<body>
+<div id="g"></div><div id="m"></div><div id="sl"></div>
+<div id="title">LIVE 3D WORLD<small>Drag to rotate · scroll to zoom · zoom closer over land for 3D buildings</small></div>
+<div id="card" class="glass">
+  <h2 id="place">Locating…</h2><div class="sub" id="coords"></div><div class="sub" id="mode" style="color:#7fb4ff;font-weight:600"></div>
+  <div id="clock">--:--:--</div><div class="sub" id="date"></div>
+  <div class="row"><span id="temp">--°C</span><span id="wx"></span></div>
+  <div class="row"><span id="feels"></span><span id="wind"></span></div>
+  <h3>Precise location</h3><div id="addr" class="addr">—</div><h3>Satellites overhead</h3><div id="over">Waiting for real orbital data…</div><h3>Live vessel feed</h3><div id="shipStatus">Off · run the local AIS proxy with a server-side key to show live AIS positions</div>
+</div>
+<div id="bar" class="glass">
+  <button id="loc">📍 My location</button>
+  <select id="spd"><option value="1">Time ×1</option><option value="60">Time ×60</option><option value="600">Time ×600</option></select>
+  <button id="zi" title="Zoom in">＋</button><button id="zo" title="Zoom out">－</button><button id="tsat" class="on">🛰 Satellites</button>
+  <button id="tbor" class="on">Borders</button><button id="tship" title="Connect a real-time AIS vessel feed">🚢 Live Ships</button>
+</div>
+<div id="tip" class="glass"></div>
+<div id="msg">Loading the world…</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/satellite.js@5.0.0/dist/satellite.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.6.0/dist/maplibre-gl.js"></script>
+<script src="/config.js"></script>
+<script>
+window.addEventListener("error",e=>{if(e.message&&e.message!=="Script error.")console.error("World error:",e.message,e.filename,e.lineno);});window.addEventListener("unhandledrejection",e=>{console.error("World async error:",e.reason);});
+function showErr(t){let m=document.getElementById("msg");if(!m){m=document.createElement("div");m.id="msg";document.body.appendChild(m);}m.textContent="Something went wrong: "+t;}
+(async function(){
+const $=id=>document.getElementById(id),D=Math.PI/180;
+if(!window.THREE||!window.d3||!window.topojson){$("msg").textContent="Could not load libraries. Check your internet connection and reload.";return;}
+const IMG="https://unpkg.com/three-globe/example/img/";
+
+// ---------- geometry helpers ----------
+const ll2v=(lat,lon,r=1)=>{const p=(90-lat)*D,t=(lon+180)*D;return new THREE.Vector3(-r*Math.sin(p)*Math.cos(t),r*Math.cos(p),r*Math.sin(p)*Math.sin(t));};
+const v2ll=v=>{v=v.clone().normalize();let lon=Math.atan2(v.z,-v.x)/D-180;if(lon<-180)lon+=360;return[Math.asin(v.y)/D,lon];};
+function sunPos(date){const d=date/864e5+2440587.5-2451545,g=(357.529+.98560028*d)*D,
+  L=(280.459+.98564736*d+1.915*Math.sin(g)+.02*Math.sin(2*g))*D,e=(23.439-4e-7*d)*D,
+  dec=Math.asin(Math.sin(e)*Math.sin(L)),ra=Math.atan2(Math.cos(e)*Math.sin(L),Math.cos(L)),
+  gm=((18.697374558+24.06570982441908*d)%24)*15*D;return{lat:dec/D,lon:((ra-gm)/D+540)%360-180,ra,gm,dec};}
+function sunEl(lat,lon,date){const s=sunPos(date),H=s.gm+lon*D-s.ra;
+  return Math.asin(Math.sin(lat*D)*Math.sin(s.dec)+Math.cos(lat*D)*Math.cos(s.dec)*Math.cos(H))/D;}
+
+// ---------- water names ----------
+const SEAS=[["Mediterranean Sea",-6,36,30,45.5],["Black Sea",27.5,41.8,40.8,46.8],["North Sea",-3,9,51,61],["Baltic Sea",10,30,53.5,66],
+["Red Sea",32,43.5,12.5,28],["Persian Gulf",48,56.5,24,30],["Arabian Sea",52,77,5,25],["Bay of Bengal",80,100,5,22],
+["South China Sea",99,121,0,23],["Sea of Japan",127,142,34,52],["Philippine Sea",122,142,5,30],["Tasman Sea",150,175,-45,-30],
+["Coral Sea",145,165,-25,-10],["Bering Sea",162,-157,51,66],["Gulf of Mexico",-98,-80.5,18,30.5],["Caribbean Sea",-88,-60,9,22],
+["Hudson Bay",-95,-77,51,64],["Norwegian Sea",-5,15,62,72]];
+const inB=(b,lo,la)=>(b[1]<=b[2]?lo>=b[1]&&lo<=b[2]:lo>=b[1]||lo<=b[2])&&la>=b[3]&&la<=b[4];
+function water(lo,la){for(const s of SEAS)if(inB(s,lo,la))return s[0];
+  if(la>66)return"Arctic Ocean";if(la<-60)return"Southern Ocean";
+  if(lo>=20&&lo<=120&&la<30||lo>120&&lo<=147&&la<-12)return"Indian Ocean";
+  if(la>=0?(lo>=-78&&lo<20):(lo>=-68&&lo<20))return la>=0?"North Atlantic Ocean":"South Atlantic Ocean";
+  return la>=0?"North Pacific Ocean":"South Pacific Ocean";}
+
+// ---------- data ----------
+let world;try{world=await Promise.race([d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json"),new Promise((_,j)=>setTimeout(()=>j(new Error("timeout")),20000))]);}
+catch(e){$("msg").textContent="Could not load map data. Check your internet connection and reload.";return;}
+const feats=topojson.feature(world,world.objects.countries).features.map(f=>({f,b:d3.geoBounds(f)}));
+function country(lat,lon){for(const c of feats){const[[w,s],[e,n]]=c.b;
+  if(lat<s||lat>n||(w<=e?lon<w||lon>e:lon<w&&lon>e))continue;
+  if(d3.geoContains(c.f,[lon,lat]))return c.f.properties.name;}return null;}
+
+// ---------- three scene ----------
+const el=$("g"),scene=new THREE.Scene(),cam=new THREE.PerspectiveCamera(45,1,.01,200);
+const ren=new THREE.WebGLRenderer({antialias:true});ren.setPixelRatio(Math.min(devicePixelRatio,2));el.appendChild(ren.domElement);
+cam.position.set(0,.6,3.2);cam.far=300;cam.updateProjectionMatrix();
+const ctl=new THREE.OrbitControls(cam,ren.domElement);ctl.enableDamping=true;ctl.dampingFactor=.075;ctl.enableZoom=false;ctl.minDistance=1.0004;ctl.maxDistance=8;ctl.rotateSpeed=.48;ctl.panSpeed=.45;ren.domElement.style.touchAction="none";
+const stars=new THREE.BufferGeometry(),sp=[];for(let i=0;i<2500;i++){const v=new THREE.Vector3().randomDirection().multiplyScalar(60);sp.push(v.x,v.y,v.z);}
+stars.setAttribute("position",new THREE.Float32BufferAttribute(sp,3));
+scene.add(new THREE.Points(stars,new THREE.PointsMaterial({size:1.4,sizeAttenuation:false,color:0xffffff})));
+
+// water mask (auto-detect polarity by sampling mid-Atlantic)
+const wImg=await new Promise(r=>{const i=new Image();i.crossOrigin="anonymous";i.onload=()=>r(i);i.onerror=()=>r(null);setTimeout(()=>r(null),8000);i.src=IMG+"earth-water.png";});
+let inv=0,wTex=new THREE.DataTexture(new Uint8Array([0,0,0,255]),1,1);wTex.needsUpdate=true;
+if(wImg){const c=document.createElement("canvas");c.width=wImg.width;c.height=wImg.height;const x=c.getContext("2d");x.drawImage(wImg,0,0);
+  inv=x.getImageData(Math.floor((-30+180)/360*c.width),Math.floor((90-10)/180*c.height),1,1).data[0]<128?1:0;wTex=new THREE.CanvasTexture(c);}
+const tl=new THREE.TextureLoader().setCrossOrigin("anonymous"),AN=ren.capabilities.getMaxAnisotropy(),ld=u=>{const t=tl.load(u);t.anisotropy=AN;return t;};
+const U={day:{value:ld(IMG+"earth-day.jpg")},night:{value:ld(IMG+"earth-night.jpg")},water:{value:wTex},
+  sun:{value:new THREE.Vector3(1,0,0)},cam:{value:cam.position},t:{value:0},inv:{value:inv},uO:{value:new THREE.Vector3(0,1,0)},uE:{value:new THREE.Vector3(1,0,0)},uN:{value:new THREE.Vector3(0,0,-1)},uMpp:{value:5e4},uAmp:{value:.3},uWd:{value:new THREE.Vector2(.8,.6)},uWs:{value:8}};
+const WAVE=`
+float hs(float x){return fract(sin(x*127.1)*43758.5453);}
+float vn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
+float a=fract(sin(dot(i,vec2(127.1,311.7)))*43758.5453),b=fract(sin(dot(i+vec2(1,0),vec2(127.1,311.7)))*43758.5453),c=fract(sin(dot(i+vec2(0,1),vec2(127.1,311.7)))*43758.5453),d=fract(sin(dot(i+vec2(1,1),vec2(127.1,311.7)))*43758.5453);
+return mix(mix(a,b,f.x),mix(c,d,f.x),f.y);}
+vec3 oceanShade(vec3 base,vec3 n,vec3 L,vec3 V,float d){
+vec3 dd=n-uO;vec2 xy=vec2(dot(dd,uE),dot(dd,uN))*6371000.;
+float Lb=max(clamp(.62*uWs*uWs,22.,220.),22.*uMpp),T=t*2.0,h=0.,S=0.;vec2 g=vec2(0.);float wa=atan(uWd.y,uWd.x),sc=clamp(.55+uWs/14.,.6,1.5);
+for(int i=0;i<28;i++){float fi=float(i),L2=Lb*pow(.79,fi);if(L2<3.5)break;
+float k=6.2831853/L2,ang=wa+(hs(fi+1.)-.5)*(.9+1.6*fi/24.),w=sqrt(9.81*k);vec2 dir=vec2(cos(ang),sin(ang));
+float ph=k*dot(dir,xy)-w*T+hs(fi+9.)*6.2831853,s=.105*sc*(.6+.4*hs(fi+5.))*(1.-fi/38.);
+h+=s/k*cos(ph);g-=s*sin(ph)*dir;S+=s*cos(ph);}
+vec3 e2=uE-n*dot(uE,n),n2=uN-n*dot(uN,n);vec3 nn=normalize(n-(g.x*e2+g.y*n2)*uAmp);
+float F=.02+.98*pow(1.-max(dot(nn,V),0.),5.);float lit=.2+.9*max(dot(nn,L),0.);
+vec3 body=(base*vec3(.55,.8,1.05)+vec3(.04,.42,.40)*smoothstep(-.1,.7,S)*.5*max(d,0.))*lit;
+vec3 sky=vec3(.38,.58,.9)*(.25+.75*max(d,0.));vec3 col=mix(body,sky,F*.7);
+float r=max(dot(reflect(-L,nn),V),0.);col+=vec3(1.,.95,.85)*(pow(r,120.)*2.2+pow(r,16.)*.1)*smoothstep(0.,.15,d);
+float micro=vn(xy*.075+vec2(T*.12,-T*.08));
+float foam=smoothstep(.18,.5,S+(vn(xy*.24+vec2(T*.04))-.5)*.42)*uAmp;
+float crest=smoothstep(.70,.94,micro+S*.28)*uAmp;
+col+=vec3(.22,.35,.43)*pow(micro,5.)*(.18+.5*max(d,0.));
+col=mix(col,vec3(.91,.97,1.)*(.38+.62*max(d,0.)),clamp(foam*.72+crest*.22,0.,.9));return col;}`;
+
+const earth=new THREE.Mesh(new THREE.SphereGeometry(1,128,128),new THREE.ShaderMaterial({uniforms:U,
+vertexShader:"varying vec2 vUv;varying vec3 vP;void main(){vUv=uv;vP=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}",
+fragmentShader:"uniform sampler2D day,night,water;uniform vec3 sun,cam,uO,uE,uN;uniform vec2 uWd;uniform float t,inv,uMpp,uAmp,uWs;varying vec2 vUv;varying vec3 vP;"+WAVE+`
+void main(){vec3 n=normalize(vP);float w=texture2D(water,vUv).r;w=inv>.5?1.-w:w;w=smoothstep(.3,.7,w);
+vec3 L=normalize(sun),V=normalize(cam-vP);float d=dot(n,L),dl=smoothstep(-.12,.2,d);
+vec3 dc=texture2D(day,vUv).rgb,nc=texture2D(night,vUv).rgb;
+vec3 land=dc*(.18+.95*max(d,0.));vec3 oc=oceanShade(dc,n,L,V,d);
+// Thin moving whitecaps near the coastline give the global ocean a surf-like edge.
+float wxp=texture2D(water,vUv+vec2(.0025,0.)).r, wxm=texture2D(water,vUv-vec2(.0025,0.)).r;
+float wyp=texture2D(water,vUv+vec2(0.,.0025)).r, wym=texture2D(water,vUv-vec2(0.,.0025)).r;
+if(inv>.5){wxp=1.-wxp;wxm=1.-wxm;wyp=1.-wyp;wym=1.-wym;}
+float coast=clamp((abs(wxp-wxm)+abs(wyp-wym))*3.2,0.,1.);
+float surf=coast*(.28+.72*(.5+.5*sin(t*2.2+vUv.x*240.+vUv.y*130.)));
+float surfBand=coast*smoothstep(.42,.86,.5+.5*sin(t*1.4+vUv.x*320.-vUv.y*180.));
+oc=mix(oc,vec3(.91,.97,1.),clamp(surf*.62+surfBand*.42,0.,.92));
+vec3 col=mix(nc*1.1,mix(land,oc,w),dl);col+=vec3(.25,.5,1.)*pow(1.-max(dot(n,V),0.),3.)*.35*dl;
+gl_FragColor=vec4(col,1.);}`}));
+scene.add(earth);
+(async function hd(){const T=512,C=10,R=5,cv=document.createElement("canvas");cv.width=C*T;cv.height=R*T;const x=cv.getContext("2d");
+  const hosts=["https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/wmts.cgi","https://map1a.vis.earthdata.nasa.gov/wmts-geo/wmts.cgi"];
+  for(const h of hosts){const jobs=[];
+    for(let r=0;r<R;r++)for(let c=0;c<C;c++)jobs.push(new Promise(res=>{const i=new Image();i.crossOrigin="anonymous";i.onload=()=>{x.drawImage(i,c*T,r*T);res(1);};i.onerror=()=>res(0);
+      setTimeout(()=>res(0),30000);i.src=h+"?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=BlueMarble_ShadedRelief_Bathymetry&STYLE=&TILEMATRIXSET=EPSG4326_500m&TILEMATRIX=3&TILEROW="+r+"&TILECOL="+c+"&FORMAT=image%2Fjpeg";}));
+    const ok=(await Promise.all(jobs)).reduce((a,b)=>a+b,0);
+    if(ok>=R*C*.9){const t=new THREE.CanvasTexture(cv);t.anisotropy=AN;t.minFilter=THREE.LinearMipmapLinearFilter;U.day.value=t;return;}}
+})();
+scene.add(new THREE.Mesh(new THREE.SphereGeometry(1.09,64,64),new THREE.ShaderMaterial({side:THREE.BackSide,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,
+vertexShader:"varying vec3 vN;void main(){vN=normalize(normalMatrix*normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}",
+fragmentShader:"varying vec3 vN;void main(){float i=pow(max(.72-dot(vN,vec3(0,0,1)),0.),3.);gl_FragColor=vec4(.3,.6,1.,1.)*i*1.6;}"})));
+
+// borders
+const bp=[];topojson.mesh(world,world.objects.countries,(a,b)=>a!==b).coordinates.forEach(l=>{for(let i=0;i<l.length-1;i++){
+  const a=ll2v(l[i][1],l[i][0],1.002),b=ll2v(l[i+1][1],l[i+1][0],1.002);bp.push(a.x,a.y,a.z,b.x,b.y,b.z);}});
+const bg=new THREE.BufferGeometry();bg.setAttribute("position",new THREE.Float32BufferAttribute(bp,3));
+const borders=new THREE.LineSegments(bg,new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:.28}));scene.add(borders);
+
+// ---------- satellites ----------
+let sats=[],N=0,sPos=null,sg=null,sPts=null,labels=[],trail=null,selSat=-1;
+async function tle(group){
+  const key="live3d.tle."+group, now=Date.now();
+  try{const cached=JSON.parse(localStorage.getItem(key)||"null");if(cached&&now-cached.at<2*60*60*1000&&typeof cached.text==="string")return parseTle(cached.text);}catch(e){}
+  const c=new AbortController(),timer=setTimeout(()=>c.abort(),12000);let textData="";
+  try{const r=await fetch("https://celestrak.org/NORAD/elements/gp.php?GROUP="+encodeURIComponent(group)+"&FORMAT=tle",{signal:c.signal,cache:"no-store"});if(!r.ok)throw new Error("CelesTrak returned HTTP "+r.status);textData=await r.text();if(!textData.includes("1 "))throw new Error("No orbital elements in response");
+    try{localStorage.setItem(key,JSON.stringify({at:now,text:textData}));}catch(e){}
+  }catch(e){console.warn("Real satellite feed unavailable for "+group,e);try{const cached=JSON.parse(localStorage.getItem(key)||"null");if(cached&&typeof cached.text==="string")textData=cached.text;}catch(_){}}
+  finally{clearTimeout(timer);}return parseTle(textData);
+}
+function parseTle(textData){const out=[],L=(textData||"").split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+  for(let i=0;i+2<L.length;i++)if(L[i+1].startsWith("1 ")&&L[i+2].startsWith("2 "))try{out.push({name:L[i].replace(/^0\s*/,"").replace(/\s*\(.*\)/,""),rec:satellite.twoline2satrec(L[i+1],L[i+2])});}catch(e){}return out;}
+async function loadTLE(){if(!window.satellite)return;const l=(await Promise.all([tle("STATIONS"),tle("VISUAL")])).flat();
+  if(l.length){buildSats(l);$("over").textContent="Real orbital data loaded · "+l.length+" satellites (positions propagated from current CelesTrak elements)";}
+  else $("over").textContent="Real satellite feed unavailable · no simulated satellites are shown.";
+}
+function posOf(s,date){
+  if(s.rec){const pv=satellite.propagate(s.rec,date);if(!pv.position)return null;const gd=satellite.eciToGeodetic(pv.position,satellite.gstime(date));
+    return[gd.latitude/D,satellite.degreesLong(gd.longitude),gd.height];}
+  const m=s.sim,t=date/6e4,gm=sunPos(date).gm;if(m.geo)return[0,m.om/D,m.alt];
+  const u=m.ph+2*Math.PI*t/m.T,i=m.inc*D;return[Math.asin(Math.sin(i)*Math.sin(u))/D,(((m.om+Math.atan2(Math.cos(i)*Math.sin(u),Math.cos(u))-gm)/D+540)%360)-180,m.alt];}
+const rr=a=>1.03+.28*Math.log10(1+a/400);
+const dot=document.createElement("canvas");dot.width=dot.height=32;{const x=dot.getContext("2d");x.fillStyle="#fff";x.beginPath();x.arc(16,16,12,0,7);x.fill();}
+const dotTex=new THREE.CanvasTexture(dot);
+function buildSats(list){
+  if(sPts){scene.remove(sPts);sg.dispose();}labels.forEach(d=>d&&d.remove());if(trail){scene.remove(trail);trail=null;}selSat=-1;
+  sats=list;N=list.length;sPos=new Float32Array(N*3);const col=new Float32Array(N*3);
+  sats.forEach((s,i)=>{s.key=/ISS|ZARYA|TIANGONG|HUBBLE|NOAA|LANDSAT|STARLINK|GPS|GOES|WEATHER|TERRA|AQUA/i.test(s.name);const c=new THREE.Color(s.key?0xffe9a0:0x9cc7ff);col.set([c.r,c.g,c.b],i*3);});
+  sg=new THREE.BufferGeometry();sg.setAttribute("position",new THREE.BufferAttribute(sPos,3));sg.setAttribute("color",new THREE.BufferAttribute(col,3));
+  sPts=new THREE.Points(sg,new THREE.PointsMaterial({size:10,sizeAttenuation:false,vertexColors:true,map:dotTex,transparent:true,alphaTest:.12,depthWrite:false}));
+  sPts.frustumCulled=false;sPts.visible=showSats;scene.add(sPts);
+  labels=sats.map(s=>{if(!s.key)return null;const d=document.createElement("div");d.className="sl";d.textContent=s.name;$("sl").appendChild(d);return d;});}
+
+function setTrail(i){if(trail){scene.remove(trail);trail=null;}selSat=i;if(i<0)return;const pts=[],now=simT;
+  for(let k=-45;k<=45;k+=1.5){const p=posOf(sats[i],new Date(now+k*6e4));if(p)pts.push(ll2v(p[0],p[1],rr(p[2])));}
+  trail=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0xffe9a0,transparent:true,opacity:.7}));scene.add(trail);}
+
+// ---------- state ----------
+let simT=Date.now(),speed=1,sel=null,tok=0,wx=null,hoverSat=-1,showSats=true,follow=true,me=null,prev=null,mapMarker=null;
+const marker=new THREE.Mesh(new THREE.RingGeometry(.012,.018,32),new THREE.MeshBasicMaterial({color:0xff4d4d,side:THREE.DoubleSide}));marker.visible=false;scene.add(marker);
+const WMO={0:"Clear",1:"Mostly clear",2:"Partly cloudy",3:"Overcast",45:"Fog",48:"Rime fog",51:"Light drizzle",53:"Drizzle",55:"Heavy drizzle",61:"Light rain",63:"Rain",65:"Heavy rain",71:"Light snow",73:"Snow",75:"Heavy snow",80:"Showers",81:"Showers",82:"Violent showers",95:"Thunderstorm",96:"Thunderstorm, hail",99:"Thunderstorm, hail"};
+const fmt=(v,u)=>v==null?"--":Math.round(v)+u;
+
+let gcT;
+function geocode(lat,lon,my){clearTimeout(gcT);$("addr").innerHTML='<span class="sub">Looking up address…</span>';
+  gcT=setTimeout(async()=>{
+    const get=u=>fetch(u).then(r=>r.json());
+    const[a,b]=await Promise.allSettled([get("https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&zoom=18&accept-language=en&lat="+lat+"&lon="+lon),
+      get("https://api.bigdatacloud.net/data/reverse-geocode-client?latitude="+lat+"&longitude="+lon+"&localityLanguage=en")]);
+    if(my!==tok)return;const ad=(a.value&&a.value.address)||{},bd=b.value||{},bdc=ad.country_code==="bd"||bd.countryCode==="BD";
+    const first=(...k)=>{for(const x of k)if(x)return x;return"";};
+    const area=first(ad.road,ad.neighbourhood,ad.suburb,ad.quarter,ad.hamlet,ad.village),
+      city=first(ad.city,ad.town,ad.village,ad.municipality,bd.city,bd.locality),
+      sub=first(ad.county,ad.municipality,ad.city_district,ad.subdistrict),
+      dist=first(ad.state_district,bdc?ad.county:""),
+      st=first(ad.state,bd.principalSubdivision),post=first(ad.postcode,bd.postcode),ctry=first(ad.country,bd.countryName);
+    const rows=[["Street / area",area],["City / town",city],[bdc?"Upazila / Thana":"County / Subdistrict",sub],["District",dist],[bdc?"Division":"State / Region",st],["Postal code",post],["Country",ctry]]
+      .filter(r=>r[1]&&!(r[0]==="District"&&r[1]===sub)).map(r=>"<div><span>"+r[0]+"</span><b>"+r[1]+"</b></div>").join("");
+    const chain=(bd.localityInfo&&bd.localityInfo.administrative||[]).slice().sort((x,y)=>x.adminLevel-y.adminLevel).map(x=>x.name).filter((x,i,arr)=>x&&arr.indexOf(x)===i);
+    $("addr").innerHTML=rows?rows+(chain.length?'<div class="chain">'+chain.join(" › ")+"</div>":""):'<span class="sub">No street address here (open water or remote area)</span>';
+    if(ctry||city)$("place").textContent=first(city,ad.county,st,ctry);
+  },700);}
+async function select(lat,lon,fly){
+  const my=++tok;sel={lat,lon};wx=null;
+  const c=country(lat,lon);$("place").textContent=c||water(lon,lat);
+  $("coords").textContent=Math.abs(lat).toFixed(4)+"°"+(lat>=0?"N":"S")+", "+Math.abs(lon).toFixed(4)+"°"+(lon>=0?"E":"W")+(me&&follow&&me.acc?"  ±"+Math.round(me.acc)+" m":"");
+  $("temp").textContent="--°C";$("wx").textContent="Loading…";$("feels").textContent=$("wind").textContent="";
+  marker.visible=true;const p=rotatedGeo(ll2v(lat,lon,1.004));marker.position.copy(p);marker.lookAt(p.clone().multiplyScalar(2));
+  if(fly)flyTo=rotatedGeo(ll2v(lat,lon,Math.min(cam.position.length(),2.2)));
+  if(map)skyUpdate();geocode(lat,lon,my);
+  try{const r=await fetch("https://api.open-meteo.com/v1/forecast?latitude="+lat+"&longitude="+lon+"&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m&timezone=auto");
+    const j=await r.json();if(my!==tok)return;let off=j.utc_offset_seconds,tz=j.timezone_abbreviation||j.timezone;
+    if(j.timezone==="GMT"&&Math.abs(lon)>7.5){off=Math.round(lon/15)*3600;tz="nautical UTC"+(off>=0?"+":"")+off/3600;}
+    wx={off,tz,cur:j.current};render();}catch(e){if(my===tok)$("wx").textContent="Weather unavailable";}
+}
+const CP=["N","NE","E","SE","S","SW","W","NW"];
+// Live AIS vessels only. The browser connects to a same-origin proxy; the AIS API key stays server-side.
+const liveShips=new Map();let aisSocket=null,aisEnabled=false,lastAisMessage=0,lastShipRender=0;
+function shipLabel(ship){let d=ship.el;if(!d){d=document.createElement("div");d.className="ship-label";d.style.display="none";
+    const icon=document.createElement("span");icon.className="ship-icon";icon.tabIndex=0;icon.setAttribute("role","img");icon.setAttribute("aria-label","Live vessel");
+    // Custom animated vessel character; no external icon-font dependency.
+    icon.innerHTML='<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M8 25 40 25 35 36Q24 42 13 36Z" fill="#c9f4ff" stroke="#70dcff" stroke-width="1.8" stroke-linejoin="round"/><path d="M18 24V14H29L34 24Z" fill="#f4fbff" stroke="#70dcff" stroke-width="1.5" stroke-linejoin="round"/><path d="M21 16H27V21H21Z" fill="#1e607b"/><path d="M8 39Q13 35 18 39T28 39T40 39" fill="none" stroke="#5bd9ff" stroke-width="2" stroke-linecap="round"/><path d="M4 31Q8 28 12 31M36 31Q40 28 44 31" fill="none" stroke="#5bd9ff" stroke-width="1.5" stroke-linecap="round"/></svg>';
+    const tooltip=document.createElement("span");tooltip.className="ship-tooltip";const nameNode=document.createElement("span");nameNode.className="ship-name";const detail=document.createElement("small");detail.className="ship-detail";tooltip.append(nameNode,detail);d.append(icon,tooltip);ship.iconEl=icon.querySelector("svg");ship.nameEl=nameNode;ship.detailEl=detail;ship.iconButton=icon;$("sl").appendChild(d);ship.el=d;}
+  const name=(ship.name||("MMSI "+ship.mmsi)).trim();ship.nameEl.textContent=name;ship.detailEl.textContent=(Number.isFinite(ship.sog)?ship.sog.toFixed(1)+" kn":"Speed unavailable")+(Number.isFinite(ship.cog)?" · course "+Math.round(ship.cog)+"°":"");ship.iconEl.style.transform="rotate("+(Number.isFinite(ship.cog)?ship.cog:0)+"deg)";ship.iconButton.setAttribute("aria-label",name+"; live AIS position");d.title="";}
+function stopAIS(){aisEnabled=false;const socket=aisSocket;aisSocket=null;if(socket){try{socket.onclose=null;socket.close();}catch(e){}}for(const ship of liveShips.values())ship.el?.remove();liveShips.clear();$("tship").classList.remove("on");$("tship").innerHTML='🛳 Live Ships';$("shipStatus").textContent="Off · vessel markers hidden";}
+function connectAIS(){
+  if(location.protocol==="file:"){$("shipStatus").textContent="Run the included local server to connect the secure AIS proxy.";return;}
+  const sameOriginProxy=(location.protocol==="https:"?"wss://":"ws://")+location.host+"/api/ais-stream";
+  const proxyUrl=(typeof window.LIVE3D_AIS_WS_URL==="string"&&window.LIVE3D_AIS_WS_URL.trim())?window.LIVE3D_AIS_WS_URL.trim():sameOriginProxy;
+  try{aisSocket=new WebSocket(proxyUrl);}catch(e){$("shipStatus").textContent="Could not open the local AIS proxy";return;}
+  $("shipStatus").textContent="Connecting to your local AIS proxy…";
+  aisSocket.onopen=()=>{if(!aisSocket)return;aisEnabled=true;$("tship").classList.add("on");$("tship").innerHTML="🛳 Live Ships: On";$("shipStatus").textContent="Proxy connected · waiting for real AIS reports";};
+  aisSocket.onmessage=async e=>{let msg;try{const raw=typeof e.data==="string"?e.data:await e.data.text();msg=JSON.parse(raw);}catch(_){return;}
+    if(msg.type==="server_error"){$("shipStatus").textContent=msg.message||"AIS proxy error";return;}
+    const md=msg.MetaData||{},body=msg.Message||{},r=body.PositionReport||body.StandardClassBPositionReport||body.ExtendedClassBPositionReport;
+    if(!r)return;const lat=Number(r.Latitude??md.Latitude??md.latitude),lon=Number(r.Longitude??md.Longitude??md.longitude),mmsi=String(r.UserID??md.MMSI??md.MMSI_String??"");
+    if(!mmsi||!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180)return;
+    const old=liveShips.get(mmsi),ship=old||{mmsi,lat,lon,targetLat:lat,targetLon:lon,receivedAt:Date.now(),sog:0,cog:0};
+    ship.targetLat=lat;ship.targetLon=lon;ship.lat=old?old.lat:lat;ship.lon=old?old.lon:lon;ship.receivedAt=Date.now();ship.name=String(md.ShipName||md.shipName||old?.name||("MMSI "+mmsi)).trim();
+    ship.sog=Number.isFinite(Number(r.Sog))?Number(r.Sog):old?.sog||0;ship.cog=Number.isFinite(Number(r.Cog))?Number(r.Cog):old?.cog||0;ship.course=ship.cog;shipLabel(ship);liveShips.delete(mmsi);liveShips.set(mmsi,ship);
+    while(liveShips.size>1200){const first=liveShips.keys().next().value,removed=liveShips.get(first);removed?.el?.remove();liveShips.delete(first);}lastAisMessage=Date.now();
+    $("shipStatus").textContent="Live AIS · "+liveShips.size+" vessels tracked · updated "+new Date().toLocaleTimeString();};
+  aisSocket.onerror=()=>{$("shipStatus").textContent="AIS proxy connection error · make sure the local server is running";};
+  aisSocket.onclose=()=>{if(aisEnabled){aisEnabled=false;for(const ship of liveShips.values())ship.el?.remove();liveShips.clear();$("tship").classList.remove("on");$("tship").innerHTML="🛳 Live Ships";if(!$("shipStatus").textContent.includes("API key"))$("shipStatus").textContent="AIS stream disconnected";}aisSocket=null;};
+}
+$("tship").onclick=()=>{if(aisEnabled||aisSocket){stopAIS();return;}connectAIS();};
+function liveShipPosition(ship,now){
+  // Briefly extrapolate from the last real AIS report using reported speed/course; stop extrapolating after 60 s.
+  const age=Math.max(0,Math.min(60,(now-ship.receivedAt)/1000)),distNm=Math.max(0,ship.sog||0)*age/3600,cr=(ship.cog||0)*D,lat0=ship.targetLat;
+  const lat=lat0+distNm*Math.cos(cr)/60,lon=ship.targetLon+distNm*Math.sin(cr)/(60*Math.max(.12,Math.cos(lat0*D)));
+  return [Math.max(-89.9,Math.min(89.9,lat)),((lon+540)%360)-180];
+}
+function render(){if(!wx)return;const c=wx.cur;
+  if(c.wind_speed_10m!=null){U.uWs.value=Math.max(1,c.wind_speed_10m/3.6);const to=((c.wind_direction_10m||0)+180)*D;U.uWd.value.set(Math.sin(to),Math.cos(to));}$("temp").textContent=fmt(c.temperature_2m,"°C");$("wx").textContent=WMO[c.weather_code]||"";
+  $("feels").textContent="Feels "+fmt(c.apparent_temperature,"°")+" · "+fmt(c.relative_humidity_2m,"%")+" humidity";$("wind").textContent="Wind "+fmt(c.wind_speed_10m," km/h")+(c.wind_direction_10m!=null?" "+CP[Math.round(c.wind_direction_10m/45)%8]:"");}
+function tick(){if(!wx)return;const t=new Date(Date.now()+wx.off*1000).toISOString();$("clock").textContent=t.slice(11,19);
+  $("date").textContent=t.slice(0,10)+" · "+wx.tz+(sel&&sunEl(sel.lat,sel.lon,new Date())>0?" · daytime ☀":" · night 🌙");}
+let lastOverheadAt=0,lastOverheadKey="";
+function elevationFor(p,observer,on){if(!p)return -90;const line=ll2v(p[0],p[1],6371+p[2]).sub(observer),range=line.length();if(!range)return -90;const up=line.dot(on);return Math.atan2(up,Math.sqrt(Math.max(0,range*range-up*up)))/D;}
+function overhead(){if(!sel){$("over").textContent="Waiting for your location to calculate real satellite visibility…";return;}
+  const now=Date.now(),locKey=sel.lat.toFixed(3)+","+sel.lon.toFixed(3);if(now-lastOverheadAt<30000&&locKey===lastOverheadKey)return;lastOverheadAt=now;lastOverheadKey=locKey;
+  const observer=ll2v(sel.lat,sel.lon,6371),on=observer.clone().normalize(),date=new Date(now),out=[];
+  // Propagate current TLE orbital elements at the current time; do not use simulated satellite positions.
+  sats.forEach(s=>{const p=posOf(s,date);if(!p)return;const e=elevationFor(p,observer,on);if(e>0)out.push([s.name,e,p[2]]);});
+  out.sort((a,b)=>b[1]-a[1]);
+  if(out.length){$("over").innerHTML='<div style="opacity:.7;font-size:10px;margin-bottom:4px">LIVE ORBIT PROPAGATION · '+out.length+' visible</div>'+out.slice(0,6).map(x=>"<div><span>"+x[0].replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))+"</span><span>"+Math.round(x[1])+"° · "+Math.round(x[2])+" km</span></div>").join("");return;}
+  if(!sats.length){$("over").textContent="Real orbital data is not loaded yet. Check your internet connection and reload.";return;}
+  // No satellite is above the horizon at this instant: predict the next passes from real TLEs.
+  const passes=[],step=5*60*1000,horizon=24*60*60*1000;
+  for(const s of sats){let found=null;for(let t=step;t<=horizon;t+=step){const p=posOf(s,new Date(now+t));if(!p)continue;const e=elevationFor(p,observer,on);if(e>0){found={name:s.name,minutes:Math.round(t/60000),elevation:e,alt:p[2]};break;}}if(found)passes.push(found);}
+  passes.sort((a,b)=>a.minutes-b.minutes);$("over").innerHTML='<div style="opacity:.75;font-size:10px;margin-bottom:4px">NONE VISIBLE NOW · PREDICTED REAL PASSES</div>'+(passes.length?passes.slice(0,5).map(x=>"<div><span>"+x.name.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))+"</span><span>in "+x.minutes+" min · "+Math.round(x.alt)+" km</span></div>").join(""):'No pass predicted in the next 24 hours from the currently loaded orbital elements.');}
+setInterval(()=>{tick();overhead();},1000);
+
+// ---------- zoom-in imagery patch (Esri World Imagery tiles) ----------
+const tileCache=new Map();
+function getTile(z,x,y,cb){const k=z+"/"+x+"/"+y;let t=tileCache.get(k);
+  if(t){if(t.done)cb(t.img);else t.cbs.push(cb);return;}
+  t={cbs:[cb],done:false,img:new Image()};t.img.crossOrigin="anonymous";
+  t.img.onload=()=>{t.done=true;t.cbs.forEach(f=>f(t.img));t.cbs=[];};
+  t.img.onerror=()=>{tileCache.delete(k);t.cbs.forEach(f=>f(null));};
+  t.img.src="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/"+z+"/"+y+"/"+x;tileCache.set(k,t);
+  if(tileCache.size>500)tileCache.delete(tileCache.keys().next().value);}
+const PFS="uniform sampler2D tex;uniform vec3 sun,cam,uO,uE,uN;uniform vec2 uWd;uniform float t,uMpp,uAmp,uWs;varying vec2 vUv;varying vec3 vP;"+WAVE+`
+void main(){vec4 c=texture2D(tex,vUv);if(c.a<.5)discard;vec3 n=normalize(vP);vec3 L=normalize(sun),V=normalize(cam-vP);float d=dot(n,L),dl=smoothstep(-.12,.2,d);
+float lum=dot(c.rgb,vec3(.3,.6,.1)),w=smoothstep(0.,.07,c.b-max(c.r,c.g)*.92)*(1.-smoothstep(.4,.65,lum));
+vec3 land=c.rgb*(.18+.95*max(d,0.));vec3 oc=oceanShade(c.rgb,n,L,V,d);
+gl_FragColor=vec4(mix(c.rgb*.04,mix(land,oc,w),dl),1.);}`;
+let patch=null,pend=false;
+function patchWant(){const h=Math.max(.0004,cam.position.length()-1),gpp=2*h*.4142/innerHeight,[lat,lon]=v2ll(cam.position),cl=Math.max(Math.cos(lat*D),.2);
+  let z=Math.ceil(Math.log2(2*Math.PI*cl/(256*gpp)));if(z<5)return{z};z=Math.min(z,country(lat,lon)?14:9);if(z<5)return{z};
+  const n=2**z,tw=2*Math.PI*cl/n,la=Math.max(-85,Math.min(85,lat));
+  return{z,n,cols:Math.max(3,Math.min(14,Math.ceil(innerWidth*gpp/tw)+2)),rows:Math.max(3,Math.min(10,Math.ceil(innerHeight*gpp/tw)+2)),
+    tx:Math.floor((lon+180)/360*n),ty:Math.max(0,Math.min(n-1,Math.floor((1-Math.asinh(Math.tan(la*D))/Math.PI)/2*n)))};}
+function patchBuild(w){pend=true;const{z,n,cols,rows}=w,x0=w.tx-(cols>>1),y0=Math.max(0,Math.min(Math.max(0,n-rows),w.ty-(rows>>1)));
+  const cv=document.createElement("canvas");cv.width=cols*256;cv.height=rows*256;const cx=cv.getContext("2d");
+  const tex=new THREE.CanvasTexture(cv);tex.anisotropy=AN;tex.minFilter=THREE.LinearMipmapLinearFilter;
+  const S=8,vx=cols*S+1,vy=rows*S+1,pos=[],uv=[],idx=[];
+  for(let j=0;j<vy;j++)for(let i=0;i<vx;i++){const lon=(x0+i/S)/n*360-180,ty=y0+j/S,
+    lat=Math.max(-85.05,Math.min(85.05,Math.atan(Math.sinh(Math.PI*(1-2*ty/n)))/D)),v=ll2v(lat,lon,1.00008);pos.push(v.x,v.y,v.z);uv.push(i/(vx-1),1-j/(vy-1));}
+  for(let j=0;j<vy-1;j++)for(let i=0;i<vx-1;i++){const a=j*vx+i,b=a+1,c=a+vx,d=c+1;idx.push(a,c,b,b,c,d);}
+  const g=new THREE.BufferGeometry();g.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));g.setAttribute("uv",new THREE.Float32BufferAttribute(uv,2));g.setIndex(idx);
+  const mat=new THREE.ShaderMaterial({uniforms:{tex:{value:tex},sun:U.sun,cam:U.cam,t:U.t,uO:U.uO,uE:U.uE,uN:U.uN,uMpp:U.uMpp,uAmp:U.uAmp,uWd:U.uWd,uWs:U.uWs},side:THREE.DoubleSide,
+    vertexShader:"varying vec2 vUv;varying vec3 vP;void main(){vUv=uv;vP=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}",fragmentShader:PFS});
+  const mesh=new THREE.Mesh(g,mat);mesh.frustumCulled=false;let need=0,got=0,done=false,dirty=false;
+  const swap=()=>{if(done)return;done=true;pend=false;if(patch){scene.remove(patch.mesh);patch.mesh.geometry.dispose();patch.mesh.material.dispose();patch.mesh.material.uniforms.tex.value.dispose();}
+    scene.add(mesh);patch={mesh,z,cx:w.tx,cy:w.ty,n,cols,rows};};
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){const ty=y0+r;if(ty<0||ty>=n)continue;need++;
+    getTile(z,(((x0+c)%n)+n)%n,ty,img=>{got++;if(img){cx.drawImage(img,c*256,r*256);tex.needsUpdate=true;}if(got>=need*.85)swap();});}
+  setTimeout(swap,5000);}
+function patchTick(){autoCity();if(city)return;const w=patchWant();
+  if(!w.n){if(patch)patch.mesh.visible=false;return;}if(patch)patch.mesh.visible=true;if(pend)return;
+  if(!patch){patchBuild(w);return;}const p=patch,dx=((w.tx-p.cx+p.n/2)%p.n+p.n)%p.n-p.n/2;
+  if(w.z!==p.z||Math.abs(dx)>=1||Math.abs(w.ty-p.cy)>=1||Math.abs(w.cols-p.cols)>=2||Math.abs(w.rows-p.rows)>=2)patchBuild(w);}
+setInterval(()=>{try{patchTick();}catch(e){console.error(e);}},300);
+
+// ---------- precise zoom (proportional to altitude) ----------
+let zoomDistance=cam.position.length();
+function wheelZoom(f){
+  const current=Math.max(.0004,zoomDistance-1);
+  const next=Math.max(.0004,Math.min(7,current*Math.max(.78,Math.min(1.28,f))));
+  zoomDistance=1+next;flyTo=null;
+}
+ren.domElement.addEventListener("wheel",e=>{e.preventDefault();wheelZoom(Math.exp(Math.max(-100,Math.min(100,e.deltaY))*.00105));},{passive:false});
+const ptr=new Map();let pd=0;
+ren.domElement.addEventListener("pointerdown",e=>ptr.set(e.pointerId,[e.clientX,e.clientY]));
+ren.domElement.addEventListener("pointermove",e=>{if(!ptr.has(e.pointerId))return;ptr.set(e.pointerId,[e.clientX,e.clientY]);
+  if(ptr.size===2){const[a,b]=[...ptr.values()],d=Math.hypot(a[0]-b[0],a[1]-b[1]);if(pd)wheelZoom(pd/d);pd=d;}});
+["pointerup","pointercancel"].forEach(n=>ren.domElement.addEventListener(n,e=>{ptr.delete(e.pointerId);pd=0;}));
+$("zi").onclick=()=>wheelZoom(.62);$("zo").onclick=()=>wheelZoom(1.62);
+
+// ---------- interaction ----------
+const ray=new THREE.Raycaster(),ndc=new THREE.Vector2(),S1=new THREE.Sphere(new THREE.Vector3(),1),tip=$("tip"),YAXIS=new THREE.Vector3(0,1,0);let flyTo=null,down=null;
+function rotatedGeo(v){return v.clone().applyAxisAngle(YAXIS,earth.rotation.y);}
+function hit(e){const r=ren.domElement.getBoundingClientRect();ndc.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);ray.setFromCamera(ndc,cam);
+  const v=new THREE.Vector3();return ray.ray.intersectSphere(S1,v)?v:null;}
+function occl(p){const d=p.clone().sub(cam.position),L=d.length(),r=new THREE.Ray(cam.position,d.normalize()),v=new THREE.Vector3();
+  return r.intersectSphere(S1,v)&&cam.position.distanceTo(v)<L-.01;}
+function nearSat(e){if(!showSats||!sPts)return-1;let b=-1,bd=12;const r=ren.domElement.getBoundingClientRect();
+  sats.forEach((s,i)=>{if(!s.v||occl(rotatedGeo(s.v)))return;const q=rotatedGeo(s.v).project(cam);if(q.z>1)return;
+    const d=Math.hypot((q.x+1)/2*r.width+r.left-e.clientX,(1-q.y)/2*r.height+r.top-e.clientY);if(d<bd){bd=d;b=i;}});return b;}
+ren.domElement.addEventListener("pointerdown",e=>{down=[e.clientX,e.clientY];flyTo=null;});
+ren.domElement.addEventListener("pointerup",e=>{if(!down||Math.hypot(e.clientX-down[0],e.clientY-down[1])>5)return;
+  const s=nearSat(e);if(s>=0){setTrail(s===selSat?-1:s);return;}const v=hit(e);if(v){const[la,lo]=v2ll(v.clone().applyAxisAngle(YAXIS,-earth.rotation.y));follow=false;select(la,lo,false);}});
+ren.domElement.addEventListener("pointermove",e=>{hoverSat=nearSat(e);let h,k;
+  if(hoverSat>=0){const s=sats[hoverSat];h=s.name;k="Satellite · "+Math.round(s.p[2])+" km up";}
+  else{const v=hit(e);if(!v){tip.style.display="none";return;}const[la,lo]=v2ll(v.clone().applyAxisAngle(YAXIS,-earth.rotation.y)),c=country(la,lo);h=c||water(lo,la);k=c?"Country":"Ocean / Sea";}
+  tip.innerHTML="<small>"+k+"</small>"+h;tip.style.display="block";tip.style.left=Math.min(e.clientX+16,innerWidth-tip.offsetWidth-8)+"px";tip.style.top=Math.min(e.clientY+16,innerHeight-tip.offsetHeight-8)+"px";});
+ren.domElement.addEventListener("pointerleave",()=>tip.style.display="none");
+
+// ---------- live user avatar ----------
+const hav=(a,b,c,d)=>{const x=(c-a)*D,y=(d-b)*D,h=Math.sin(x/2)**2+Math.cos(a*D)*Math.cos(c*D)*Math.sin(y/2)**2;return 12742000*Math.asin(Math.sqrt(h));};
+function modeOf(sp,alt){if(alt>3000||sp>70)return["✈️","Flying"];if(sp>7)return["🚗","Driving"];if(sp>2.8)return["🚴","Cycling"];if(sp>.6)return["🚶","Walking"];return["🧍","Standing still"];}
+const meEl=document.createElement("div");meEl.className="mepos";meEl.innerHTML='<div class="avatar-mini" role="button" aria-label="Your location avatar" title="Your location — click to center"><div class="bo"><div class="face"><div class="earL"></div><div class="earR"></div><div class="eyeL"></div><div class="eyeR"></div><div class="hairs"></div><div class="nose"></div><div class="mouth"></div><div class="smileL"><svg viewBox="0 0 65 65" xmlns="http://www.w3.org/2000/svg"><defs><filter id="blurLeft"><feGaussianBlur stdDeviation="2"/></filter></defs><path d="M25 19c-6 2-12 4-18 5-2 0-4-2-6-3 1-1 2-3 3-4 11-3 22-7 32-10 2-1 4 1 6 2-1 1-2 4-3 4-4 2-9 4-14 6z" fill="#EF7F71" filter="url(#blurLeft)"/><path d="M35 35c-6 2-12 4-18 5-2 0-4-2-6-3 1-1 2-3 3-4 11-3 22-7 32-10 2-1 4 1 6 2-1 1-2 4-3 4-4 2-9 4-14 6z" fill="#EF7F71" filter="url(#blurLeft)"/><path d="M45 50c-6 2-12 4-18 5-2 0-4-2-6-3 1-1 2-3 3-4 11-3 22-7 32-10 2-1 4 1 6 2-1 1-2 4-3 4-4 2-9 4-14 6z" fill="#EF7F71" filter="url(#blurLeft)"/></svg></div><div class="smileR"><svg viewBox="0 0 65 65" xmlns="http://www.w3.org/2000/svg"><defs><filter id="blurRight"><feGaussianBlur stdDeviation="2"/></filter></defs><path d="M25 19c-6 2-12 4-18 5-2 0-4-2-6-3 1-1 2-3 3-4 11-3 22-7 32-10 2-1 4 1 6 2-1 1-2 4-3 4-4 2-9 4-14 6z" fill="#EF7F71" filter="url(#blurRight)"/><path d="M35 35c-6 2-12 4-18 5-2 0-4-2-6-3 1-1 2-3 3-4 11-3 22-7 32-10 2-1 4 1 6 2-1 1-2 4-3 4-4 2-9 4-14 6z" fill="#EF7F71" filter="url(#blurRight)"/><path d="M45 50c-6 2-12 4-18 5-2 0-4-2-6-3 1-1 2-3 3-4 11-3 22-7 32-10 2-1 4 1 6 2-1 1-2 4-3 4-4 2-9 4-14 6z" fill="#EF7F71" filter="url(#blurRight)"/></svg></div><div class="snow"><div class="mountain-cap-1"></div><div class="mountain-cap-2"></div><div class="mountain-cap-3"></div><div class="mountain-cap-4"></div></div></div></div></div>';$("sl").appendChild(meEl);
+meEl.addEventListener("click",e=>{e.stopPropagation();if(me){follow=true;select(me.lat,me.lon,true);}});
+function onPos(p){const c=p.coords,now=Date.now();let sp=c.speed;
+  if(prev&&now-prev.t>500){const d=hav(prev.lat,prev.lon,c.latitude,c.longitude)/((now-prev.t)/1000);if(sp==null||isNaN(sp))sp=d;}
+  if(sp==null||isNaN(sp))sp=0;sp=me?me.sp*.5+sp*.5:sp;
+  const first=!me,[em,label]=modeOf(sp,c.altitude||0),moved=sel?hav(sel.lat,sel.lon,c.latitude,c.longitude):1e9;
+  me={lat:c.latitude,lon:c.longitude,sp,em,label,acc:c.accuracy};prev={lat:c.latitude,lon:c.longitude,t:now};
+  if(mapMarker){mapMarker.setLngLat([me.lon,me.lat]);if(map&&!mapMarker._map)mapMarker.addTo(map);}
+  $("mode").textContent=em+" "+label+" · "+Math.round(sp*3.6)+" km/h (live)";
+  if(first||(follow&&moved>150))select(me.lat,me.lon,first||follow&&!city);
+  if(map&&city&&follow)map.easeTo({center:[me.lon,me.lat],duration:1000});}
+async function ipFallback(){try{const j=await(await fetch("https://ipwho.is/")).json();if(j.success){$("mode").textContent="Location access not granted — showing approximate location";select(j.latitude,j.longitude,true);return;}}catch(e){}select(23.8,90.4,true);}
+function startGeo(){if(!navigator.geolocation){ipFallback();return;}
+  navigator.geolocation.watchPosition(onPos,err=>{if(!me)ipFallback();},{enableHighAccuracy:true,maximumAge:2000,timeout:20000});}
+$("loc").onclick=()=>{follow=true;if(me)select(me.lat,me.lon,true);else startGeo();};
+$("spd").onchange=e=>speed=+e.target.value;
+$("tsat").onclick=e=>{showSats=!showSats;e.target.classList.toggle("on",showSats);if(sPts)sPts.visible=showSats;if(trail)trail.visible=showSats;};
+$("tbor").onclick=e=>{borders.visible=!borders.visible;e.target.classList.toggle("on",borders.visible);};
+
+// ---------- automatic city view (roads, 3D buildings, terrain, sky) ----------
+let map=null,city=false,cityMapReady=false,cityRevealTimer=null;
+function skyUpdate(){if(!map||!sel||!map.isStyleLoaded())return;try{const e=sunEl(sel.lat,sel.lon,new Date()),day=Math.max(0,Math.min(1,(e+6)/18)),mx=(a,b)=>d3.interpolateRgb(a,b)(day);
+  let hz=mx("#1a1a3a","#dcefff");if(e>-6&&e<8)hz=d3.interpolateRgb(hz,"#ff9a5c")(.45);
+  map.setSky({"sky-color":mx("#050a24","#5aa7f0"),"horizon-color":hz,"fog-color":mx("#0b0f26","#cfe6ff"),"sky-horizon-blend":.6,"horizon-fog-blend":.6,"fog-ground-blend":.5,"atmosphere-blend":0});
+  $("m").style.filter="brightness("+(.45+.55*day)+") saturate("+(.7+.3*day)+")";}catch(e){console.warn(e);}}
+const MPPK=78271.517,RE=6371000;
+function setCam(lat,lon,z){const mpp=MPPK*Math.cos(lat*D)/Math.pow(2,z),h=mpp*innerHeight/(RE*2*.4142);cam.position.copy(rotatedGeo(ll2v(lat,lon,1+Math.max(.0004,h))));zoomDistance=cam.position.length();}
+function revealCityMap(){if(!city||!map||!cityMapReady||!map.isStyleLoaded())return;map.resize();$("g").style.visibility="visible";$("g").style.opacity=0;$("m").style.opacity=1;$("sl").style.display="none";setTimeout(()=>{if(city)$("g").style.visibility="hidden";},950);}
+function mapCreate(c,z){
+  if(!window.maplibregl)return false;
+  try{map=new maplibregl.Map({container:"m",style:"https://tiles.openfreemap.org/styles/liberty",center:c,zoom:z,pitch:0,bearing:0,maxPitch:80,minZoom:12,scrollZoom:true,dragPan:true,doubleClickZoom:true, touchZoomRotate:true,antialias:true,fadeDuration:0});}catch(e){console.warn("Could not initialize city map",e);map=null;return false;}
+  map.addControl(new maplibregl.NavigationControl({visualizePitch:true}),"bottom-left");
+  map.on("error",e=>{console.warn("City map tile/style error:",e&&e.error&&e.error.message);});
+  map.on("idle",()=>{cityMapReady=!!(map&&map.isStyleLoaded());if(city)revealCityMap();});
+  map.on("load",()=>{
+    try{
+      // Explicitly add 3D building extrusions when the selected vector style only has flat footprints.
+      const style=map.getStyle(),srcs=style.sources||{};
+      const vectorSource=Object.keys(srcs).find(k=>srcs[k]&&srcs[k].type==="vector"&&((srcs[k].url||"").includes("openfreemap")||(srcs[k].url||"").includes("openmaptiles"))) || Object.keys(srcs).find(k=>srcs[k]&&srcs[k].type==="vector");
+      const hasExtrusion=(style.layers||[]).some(l=>l.type==="fill-extrusion"&&/building/i.test(l.id+" "+(l["source-layer"]||"")));
+      if(vectorSource&&!hasExtrusion){
+        const layers=style.layers||[],label=layers.find(l=>l.type==="symbol"&&l.layout&&l.layout["text-field"]);
+        map.addLayer({id:"world-3d-buildings",type:"fill-extrusion",source:vectorSource,"source-layer":"building",minzoom:14,
+          filter:["all",["!=",["get","hide_3d"],true],["has","render_height"]],
+          paint:{"fill-extrusion-color":["case",["boolean",["feature-state","hover"],false],"#9bb7d8",["interpolate",["linear"],["get","render_height"],0,"#a8b2c2",80,"#64748b"]],
+          "fill-extrusion-height":["coalesce",["get","render_height"],["get","height"],8],
+          "fill-extrusion-base":["coalesce",["get","render_min_height"],["get","min_height"],0],
+          "fill-extrusion-opacity":.92}},label?label.id:undefined);
+      }
+    }catch(e){console.warn("3D building setup unavailable:",e);}
+    try{map.addSource("dem",{type:"raster-dem",tiles:["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"],encoding:"terrarium",tileSize:256,maxzoom:15});map.setTerrain({source:"dem",exaggeration:1.2});}catch(e){console.warn("Terrain unavailable:",e);}skyUpdate();
+  });
+  {const el=document.createElement("div");el.style.cssText="width:48px;height:58px;position:relative;pointer-events:auto;";const av=meEl.firstElementChild.cloneNode(true);av.style.transform="scale(.14)";av.style.transformOrigin="top left";av.style.left="0";av.style.top="0";av.style.position="absolute";el.appendChild(av);mapMarker=new maplibregl.Marker({element:el,anchor:"bottom",offset:[0,-4]});if(me)mapMarker.setLngLat([me.lon,me.lat]).addTo(map);}
+  map.on("click",e=>{follow=false;select(e.lngLat.lat,e.lngLat.lng,false);});
+  map.on("move",()=>{if(!city)return;const c=map.getCenter(),z=map.getZoom();setCam(c.lat,c.lng,z);if(z<13.1)cityOff();});
+  setInterval(skyUpdate,60000);return true;}
+function cityOn(lat,lon,z){if(city)return;city=true;flyTo=null;clearTimeout(cityRevealTimer);$("m").style.display="block";$("m").style.opacity=0;
+  if(!map){if(!mapCreate([lon,lat],Math.max(13.7,Math.min(18,z)))){city=false;$("m").style.display="none";return;}}else{map.resize();map.jumpTo({center:[lon,lat],zoom:Math.max(13.7,Math.min(18,z)),pitch:0,bearing:0});}
+  map.scrollZoom.enable();map.dragPan.enable();map.doubleClickZoom.enable();map.touchZoomRotate.enable();
+  requestAnimationFrame(()=>{if(city&&cityMapReady)revealCityMap();});
+  // Keep the globe visible until the city style actually loads; never fade to a black screen while tiles are pending.
+  cityRevealTimer=setTimeout(()=>{if(city&&cityMapReady)revealCityMap();},250);
+  setTimeout(()=>{if(city&&map&&cityMapReady)map.easeTo({pitch:62,duration:1600,easing:t=>t*t*(3-2*t)});},700);skyUpdate();}
+function cityOff(){if(!city)return;city=false;clearTimeout(cityRevealTimer);$("g").style.visibility="visible";$("g").style.opacity=1;$("sl").style.display="block";$("m").style.opacity=0;
+  setTimeout(()=>{if(!city)$("m").style.display="none";},950);}
+// Auto-enter when the globe camera reaches city-level zoom over land. Scroll/trackpad zoom remains enabled inside the city map.
+function autoCity(){const h=Math.max(.0004,cam.position.length()-1),mpp=2*h*.4142/innerHeight*RE,[la,lo]=v2ll(cam.position),z=Math.log2(MPPK*Math.max(.01,Math.cos(la*D))/mpp);
+  if(!city&&z>=13.6&&country(la,lo))cityOn(la,lo,z);}
+
+// ---------- loop ----------
+function size(){const w=innerWidth,h=innerHeight;ren.setSize(w,h);cam.aspect=w/h;cam.updateProjectionMatrix();}
+addEventListener("resize",size);size();
+let last=performance.now(),acc=0;
+function frame(now){requestAnimationFrame(frame);const dt=Math.min(50,now-last);last=now;simT+=dt*speed;earth.rotation.y+=((dt/1000)*(2*Math.PI/86164.0905)*speed);
+  const hh=Math.max(.0004,cam.position.length()-1),gpp=2*hh*.4142/innerHeight;
+  {const[la0,lo0]=v2ll(cam.position.clone().applyAxisAngle(YAXIS,-earth.rotation.y)),f0=(90-la0)*D,t0=(lo0+180)*D;U.uO.value.set(-Math.sin(f0)*Math.cos(t0),Math.cos(f0),Math.sin(f0)*Math.sin(t0));
+   U.uE.value.set(Math.sin(t0),0,Math.cos(t0));U.uN.value.set(Math.cos(f0)*Math.cos(t0),Math.sin(f0),-Math.cos(f0)*Math.sin(t0));}
+  U.uMpp.value=gpp*6371000;U.uAmp.value=Math.max(.15,Math.min(1,1.2-hh*1.6));
+  ctl.rotateSpeed=Math.max(.004,Math.min(.6,hh*1.1));const nr=Math.max(2e-5,hh*.1);if(Math.abs(nr-cam.near)>cam.near*.2){cam.near=nr;cam.updateProjectionMatrix();}
+  marker.scale.setScalar(Math.max(.0008,Math.min(1,hh*.6)));
+  U.t.value=now/1000;const sp=sunPos(new Date(simT));U.sun.value.copy(ll2v(sp.lat,sp.lon,1));
+  const date=new Date();
+  for(let i=0;i<N;i++){const s=sats[i],p=posOf(s,date);s.p=p;if(!p){s.v=null;continue;}s.v=ll2v(p[0],p[1],rr(p[2]));sPos[i*3]=s.v.x;sPos[i*3+1]=s.v.y;sPos[i*3+2]=s.v.z;}
+  if(sg)sg.attributes.position.needsUpdate=true;
+  if(now-lastShipRender>120){lastShipRender=now;for(const [id,ship] of liveShips){if(!aisEnabled){ship.el?.remove();continue;}if(Date.now()-ship.receivedAt>10*60*1000){ship.el?.remove();liveShips.delete(id);continue;}
+    const [slat,slon]=liveShipPosition(ship,Date.now()),p=rotatedGeo(ll2v(slat,slon,1.008));
+    if(occl(p)){ship.el.style.display="none";continue;}const q=p.project(cam);
+    if(q.z>1||q.x< -1.1||q.x>1.1||q.y< -1.1||q.y>1.1){ship.el.style.display="none";continue;}
+    ship.el.style.display="block";ship.el.style.left=(q.x+1)/2*innerWidth+"px";ship.el.style.top=(1-q.y)/2*innerHeight+"px";
+  }}
+  if(borders)borders.rotation.y=earth.rotation.y;if(sPts)sPts.rotation.y=earth.rotation.y;if(trail)trail.rotation.y=earth.rotation.y;if(patch)patch.mesh.rotation.y=earth.rotation.y;
+   labels.forEach((d,i)=>{if(!d)return;const s=sats[i];if(!showSats||!s.v||occl(rotatedGeo(s.v))){d.style.display="none";return;}
+    const q=rotatedGeo(s.v).project(cam);if(q.z>1||q.x< -1||q.x>1||q.y< -1||q.y>1){d.style.display="none";return;}d.style.display="block";d.style.left=(q.x+1)/2*innerWidth+"px";d.style.top=(1-q.y)/2*innerHeight+"px";});
+  if(me){const v=rotatedGeo(ll2v(me.lat,me.lon,1.012));if(occl(v)){meEl.style.display="none";}else{const q=v.clone().project(cam);meEl.style.display=q.z>1?"none":"block";meEl.style.left=(q.x+1)/2*innerWidth+"px";meEl.style.top=(1-q.y)/2*innerHeight+"px";}}
+  if((acc+=dt)>5000){acc=0;if(selSat>=0)setTrail(selSat);}
+  if(flyTo){cam.position.lerp(flyTo,1-Math.exp(-dt/620));if(cam.position.distanceTo(flyTo)<.002)flyTo=null;zoomDistance=cam.position.length();}
+  else {const current=cam.position.length(),next=current+(zoomDistance-current)*(1-Math.exp(-dt/280));if(Math.abs(next-current)>.000001)cam.position.setLength(next);}
+  ctl.update();ren.render(scene,cam);}
+$("msg").remove();requestAnimationFrame(frame);startGeo();loadTLE();
+})();
+</script>
+</body>
+</html>
