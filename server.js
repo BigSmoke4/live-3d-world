@@ -31,6 +31,25 @@ const server = http.createServer((req, res) => {
     res.end(JSON.stringify({ ok: true, aisKeyConfigured: Boolean(process.env.AISSTREAM_API_KEY) }));
     return;
   }
+  // Serve the public browser configuration explicitly. Without this route,
+  // the HTML's <script src="/config.js"> receives a 404 and silently falls
+  // back to a same-origin WebSocket (which is wrong for the Vercel frontend).
+  if (pathname === '/config.js') {
+    fs.readFile(path.join(__dirname, 'config.js'), (err, data) => {
+      if (err) {
+        res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
+        res.end('Could not read config.js');
+        return;
+      }
+      res.writeHead(200, {
+        'Content-Type': 'application/javascript; charset=utf-8',
+        'Cache-Control': 'no-store',
+        'X-Content-Type-Options': 'nosniff'
+      });
+      res.end(data);
+    });
+    return;
+  }
   if (pathname !== '/' && pathname !== '/index.html') {
     res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
     res.end('Not found');

@@ -93,3 +93,8 @@ Add a license file if you intend to publish the project for reuse. Verify the li
 When **Live Ships** is enabled and the AIS proxy is connected, each reported vessel appears as a small animated ship character. Hover over (or keyboard-focus) a ship to reveal its reported vessel name, speed, and course. Turning Live Ships off closes the feed and removes all ship markers immediately. These details are based on AIS reports; a vessel may show its MMSI when no ship name is supplied by the provider.
 
 The ship marker is drawn with inline SVG and CSS animations, so it does not depend on a paid icon-font kit.
+
+
+## Fix for `config.js` returning 404
+
+The server explicitly serves `/config.js` with JavaScript content type and no-cache headers. This is required because `index.html` loads `/config.js`; if that request returns 404, the browser falls back to a same-origin WebSocket instead of the Render AIS backend. Ensure `config.js` contains the public WebSocket URL `wss://live-3d-world.onrender.com/api/ais-stream` (replace the hostname if your Render service differs). Never put the AIS API key in this file.
