@@ -37,7 +37,7 @@ The local `.env` file in your working copy can contain your AISStream key. It is
 - **Do not upload `.env`**. It contains your private AISStream API key. The `.gitignore` excludes it when using Git normally.
 - Keep `index.html`, `config.js`, `README.md`, `package.json`, `server.js`, `render.yaml`, and `.env.example` in the repository.
 
-If the API key has ever been committed to a public repository, revoke/rotate it in AISStream and replace it in your local `.env` and backend environment variables.
+If the API key has ever been committed to a public repository or placed in `config.js`, revoke/rotate it in AISStream immediately and replace it in your local `.env` and backend environment variables. A browser-side config file is publicly downloadable.
 
 ### 2. Deploy the WebSocket backend
 
@@ -48,6 +48,7 @@ For Render:
 1. Create a new **Web Service** from this GitHub repository. The included `render.yaml` can be used as a Blueprint configuration.
 2. Build command: `npm install`; start command: `npm start`.
 3. In the backend service's environment settings, add `AISSTREAM_API_KEY` with your AISStream key. Set `PORT` only if the host does not provide it automatically. Never put the key in Vercel frontend variables or `config.js`.
+4. Open `https://YOUR-BACKEND-HOST/api/health`. It should return JSON with `"aisKeyConfigured":true`. If it says `false`, the key is not configured on the backend; add it in the hosting dashboard and redeploy/restart the backend.
 4. Wait for the service to deploy and copy its public hostname, for example `your-service.onrender.com`.
 5. Confirm the backend is running. The root website is served by the backend too, and `/api/health` reports whether the key is configured.
 

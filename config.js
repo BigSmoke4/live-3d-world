@@ -1,5 +1,5 @@
-// Public frontend configuration. This file must never contain API keys or other secrets.
-// Local development: leave empty to use the included server at the same origin.
-// Vercel frontend: set this to your separately hosted WebSocket backend, e.g.
-// window.LIVE3D_AIS_WS_URL = "wss://your-backend.example.com/api/ais-stream";
+// Public frontend configuration only. NEVER put your AISStream API key here.
+// For Vercel, set this to your separately hosted backend's secure WebSocket URL:
+// window.LIVE3D_AIS_WS_URL = "wss://YOUR-BACKEND-HOST/api/ais-stream";
+// Leave empty for local development on the same Node server.
 window.LIVE3D_AIS_WS_URL = "";
